@@ -1,0 +1,7 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.secrets_bootstrap.json
+.DS_Store
+artifacts/_local_test/
