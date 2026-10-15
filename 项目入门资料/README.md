@@ -10,4 +10,3 @@
 | [Q-终端配置分层.md](问答/Q-终端配置分层.md) | Terminal / Profile / conda / PATH 改哪里 |
 | [Q-本地与远程仓库.md](问答/Q-本地与远程仓库.md) | 本地副本与 GitHub 的关系、无本地如何改与试跑 |
 | [Q-gh登录与Actions-Secrets.md](问答/Q-gh登录与Actions-Secrets.md) | gh 登录持久化；Actions Secrets 填写位置 |
-| [Q-Bark长度与全文归档.md](问答/Q-Bark长度与全文归档.md) | Bark 截断与归档全文分离 |

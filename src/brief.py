@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import os
-import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .bark_client import push as bark_push
 from .deepseek_client import chat
+from .pushplus_client import push as pushplus_push
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPTS = ROOT / "prompts"
@@ -32,7 +31,6 @@ def load_prompt(name: str, today: date, yesterday_feedback: str) -> str:
     if "{{YESTERDAY_FEEDBACK}}" in text:
         block = yesterday_feedback.strip() or "（暂无昨日反馈，按通用偏好自由发挥。）"
         text = text.replace("{{YESTERDAY_FEEDBACK}}", block)
-    # strip markdown title lines for cleaner LLM input? keep full file as instructions
     return text
 
 
@@ -41,7 +39,6 @@ def read_yesterday_feedback(today: date) -> str:
     path = FEEDBACK / f"{yesterday.isoformat()}.md"
     if path.exists():
         return path.read_text(encoding="utf-8")
-    # also accept pending.md manually maintained
     pending = FEEDBACK / "pending.md"
     if pending.exists():
         content = pending.read_text(encoding="utf-8").strip()
@@ -75,19 +72,13 @@ def build_newspaper(today: date, sections: list[tuple[str, str]]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def bark_body_from_markdown(md: str) -> str:
-    """Bark 正文长度有限：保留结构，略压缩空行。"""
-    text = re.sub(r"\n{3,}", "\n\n", md)
-    # remove leading # title duplication in push
-    return text.strip()
-
-
-def feedback_edit_url(repo_web: str | None, today: date) -> str | None:
-    if not repo_web:
-        return None
-    base = repo_web.rstrip("/")
-    # GitHub web editor deep link
-    return f"{base}/edit/main/feedback/{today.isoformat()}.md"
+def build_push_content(today: date, newspaper: str) -> str:
+    footer = (
+        "\n\n---\n"
+        f"任务一打分：请在电脑打开仓库 `feedback/{today.isoformat()}.md` 填写后提交"
+        "（次日生成会读昨日反馈）。\n"
+    )
+    return newspaper.rstrip() + footer
 
 
 def run(*, dry_run: bool = False) -> Path:
@@ -111,35 +102,24 @@ def run(*, dry_run: bool = False) -> Path:
     out = ARCHIVE / f"{today.isoformat()}.md"
     out.write_text(newspaper, encoding="utf-8")
 
-    repo_web = os.environ.get("REPO_WEB_URL")
-    edit_url = feedback_edit_url(repo_web, today)
-    archive_url = None
-    if repo_web:
-        archive_url = f"{repo_web.rstrip('/')}/blob/main/archive/{today.isoformat()}.md"
-
-    # Bark 通知体有硬长度限制，长文会被 App 截断。
-    # 模型全文不缩短：完整报纸只写 archive/；Bark 只发「封面目录 + 链接」。
-    digest_parts = [
-        f"晨间简报 · {today.isoformat()}",
-        "",
-        "今日栏目：",
-    ]
-    for title_sec, _body in sections:
-        digest_parts.append(f"· {title_sec}")
-    digest_parts.append("")
-    digest_parts.append("点本通知打开完整报纸（全文不截断）。")
-    if edit_url:
-        digest_parts.append(f"游戏创意打分：{edit_url}")
-    push_body = "\n".join(digest_parts)
     title = f"晨间简报 {today.isoformat()}"
+    push_content = build_push_content(today, newspaper)
+
     if dry_run:
         print(newspaper)
-        print("--- bark digest ---")
-        print(push_body)
-        print("[dry-run] skip bark")
+        print("--- pushplus preview chars ---", len(push_content))
+        print("[dry-run] skip pushplus")
     else:
-        ok, detail = bark_push(title, push_body, url=archive_url or edit_url)
-        print("bark:", ok, detail)
+        # 单条过长时按栏目拆成多条，避免微信侧截断
+        max_chars = int(os.environ.get("PUSHPLUS_MAX_CHARS") or "18000")
+        if len(push_content) <= max_chars:
+            ok, detail = pushplus_push(title, push_content)
+            print("pushplus:", ok, detail)
+        else:
+            for sec_title, body in sections:
+                part = f"# {title}\n\n## {sec_title}\n\n{body.strip()}\n"
+                ok, detail = pushplus_push(f"{title} · {sec_title}", part)
+                print("pushplus:", sec_title, ok, detail)
 
     print("archived:", out)
     return out

@@ -22,12 +22,10 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Generate + Bark
+      - name: Generate + PushPlus
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          BARK_DEVICE_KEY: ${{ secrets.BARK_DEVICE_KEY }}
-          BARK_SERVER: ${{ secrets.BARK_SERVER }}
-          BARK_GROUP: 每日简报
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
           REPO_WEB_URL: https://github.com/${{ github.repository }}
         run: python run.py
 
