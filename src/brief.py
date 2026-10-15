@@ -55,17 +55,39 @@ def ensure_feedback_stub(today: date, repo_web: str | None) -> Path:
     return path
 
 
+def _soften_md_headings(text: str) -> str:
+    """PushPlus 把 # / ## 渲成很大字号；微信阅读改为更小的标题层级。"""
+    lines: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("######"):
+            lines.append(line)
+        elif line.startswith("#####"):
+            lines.append("#" + line)
+        elif line.startswith("####"):
+            lines.append("#" + line)
+        elif line.startswith("###"):
+            lines.append("#" + line)  # ### → ####
+        elif line.startswith("##"):
+            lines.append("#" + line)  # ## → ###
+        elif line.startswith("#"):
+            lines.append("##" + line)  # # → ###
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def build_newspaper(today: date, sections: list[tuple[str, str]]) -> str:
+    # 用 ### / ####，避免 PushPlus 把单 # 渲成整屏大标题
     lines = [
-        f"# 晨间简报 · {today.isoformat()}",
+        f"### 晨间简报 · {today.isoformat()}",
         "",
         "---",
         "",
     ]
     for title, body in sections:
-        lines.append(f"## {title}")
+        lines.append(f"#### {title}")
         lines.append("")
-        lines.append(body.strip())
+        lines.append(_soften_md_headings(body.strip()))
         lines.append("")
         lines.append("---")
         lines.append("")
