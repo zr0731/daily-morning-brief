@@ -117,20 +117,19 @@ def run(*, dry_run: bool = False) -> Path:
     if repo_web:
         archive_url = f"{repo_web.rstrip('/')}/blob/main/archive/{today.isoformat()}.md"
 
-    # Bark 有长度限制：推「导读 + 链接」，完整报纸在 archive/
-    digest_parts = [f"晨间简报 {today.isoformat()}", ""]
-    for title_sec, body in sections:
-        digest_parts.append(f"【{title_sec}】")
-        snippet = re.sub(r"\s+", " ", body.strip())[:280]
-        digest_parts.append(snippet + ("…" if len(body.strip()) > 280 else ""))
-        digest_parts.append("")
-    digest_parts.append("——")
-    if archive_url:
-        digest_parts.append(f"读全文（报纸）：{archive_url}")
+    # Bark 通知体有硬长度限制，长文会被 App 截断。
+    # 模型全文不缩短：完整报纸只写 archive/；Bark 只发「封面目录 + 链接」。
+    digest_parts = [
+        f"晨间简报 · {today.isoformat()}",
+        "",
+        "今日栏目：",
+    ]
+    for title_sec, _body in sections:
+        digest_parts.append(f"· {title_sec}")
+    digest_parts.append("")
+    digest_parts.append("点本通知打开完整报纸（全文不截断）。")
     if edit_url:
-        digest_parts.append(f"给游戏创意打分：{edit_url}")
-    else:
-        digest_parts.append(f"打分文件：feedback/{today.isoformat()}.md")
+        digest_parts.append(f"游戏创意打分：{edit_url}")
     push_body = "\n".join(digest_parts)
     title = f"晨间简报 {today.isoformat()}"
     if dry_run:
@@ -139,7 +138,6 @@ def run(*, dry_run: bool = False) -> Path:
         print(push_body)
         print("[dry-run] skip bark")
     else:
-        # 点通知先打开报纸全文；打分链接在正文内
         ok, detail = bark_push(title, push_body, url=archive_url or edit_url)
         print("bark:", ok, detail)
 
